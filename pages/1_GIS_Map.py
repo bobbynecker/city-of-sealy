@@ -1,0 +1,82 @@
+"""
+GIS Map — Sealy City + ETJ developable land.
+Renders the Developable Land Model (06_GIS) parcels colored by development tier,
+with City Limits and 2019 ETJ boundaries for context.
+"""
+import os, json
+import streamlit as st
+import folium
+from streamlit_folium import st_folium
+
+st.set_page_config(page_title="Sealy GIS — Developable Land", page_icon="🗺️", layout="wide")
+DATA = os.path.join(os.path.dirname(__file__), "..", "gis_data")
+
+st.title("Sealy GIS — Developable Land Map")
+st.caption("City + ETJ parcels from the Developable Land Model, colored by development tier. "
+           "Boundaries: City Limits and 2019 ETJ. Planning-level; source: 06_GIS/Developable_Land_Model_2026-05.")
+
+@st.cache_data
+def load(name):
+    with open(os.path.join(DATA, name)) as f:
+        return json.load(f)
+
+city = load("city_limits.geojson")
+etj  = load("etj_2019.geojson")
+parcels = load("developable_parcels.geojson")
+
+TIER_COLOR = {"T1-VACANT":"#2E7D32", "T2-UNDER":"#9CCC65", "T3-REDEV":"#FB8C00", "T4-BUILT":"#9E9E9E"}
+TIER_LABEL = {"T1-VACANT":"T1 — Vacant (prime)", "T2-UNDER":"T2 — Underutilized",
+              "T3-REDEV":"T3 — Redevelopment", "T4-BUILT":"T4 — Built"}
+
+with st.sidebar:
+    st.header("Map filters")
+    tiers = st.multiselect("Development tiers to show", list(TIER_COLOR),
+                           default=["T1-VACANT","T2-UNDER","T3-REDEV"],
+                           format_func=lambda t: TIER_LABEL[t],
+                           help="T4-Built is off by default (most parcels; turn on to show all).")
+    show_city = st.checkbox("City limits", True)
+    show_etj  = st.checkbox("2019 ETJ boundary", True)
+
+sel = [f for f in parcels["features"] if f["properties"].get("DEV_TIER") in tiers]
+
+# summary metrics for the filtered selection
+def acres(fs): return sum((f["properties"].get("ACRES") or 0) for f in fs)
+c1,c2,c3 = st.columns(3)
+c1.metric("Parcels shown", f"{len(sel):,}")
+c2.metric("Total acres", f"{acres(sel):,.0f}")
+esd = [f for f in sel if str(f['properties'].get('IN_ESD2')).lower() in ('1','true','yes')]
+c3.metric("In ESD #2", f"{len(esd):,} parcels")
+
+m = folium.Map(location=[29.78, -96.16], zoom_start=12, tiles="cartodbpositron")
+if show_city:
+    folium.GeoJson(city, name="City Limits",
+                   style_function=lambda x: {"color":"#1565C0","weight":3,"fill":False}).add_to(m)
+if show_etj:
+    folium.GeoJson(etj, name="2019 ETJ",
+                   style_function=lambda x: {"color":"#6A1B9A","weight":2,"dashArray":"5,5","fill":False}).add_to(m)
+
+def style(feat):
+    t = feat["properties"].get("DEV_TIER")
+    return {"fillColor":TIER_COLOR.get(t,"#999"), "color":"#555", "weight":0.4, "fillOpacity":0.6}
+
+folium.GeoJson(
+    {"type":"FeatureCollection","features":sel},
+    name="Developable parcels",
+    style_function=style,
+    tooltip=folium.GeoJsonTooltip(
+        fields=["PARCEL_ID","OWNER","ACRES","JURIS","ZONE_PROP","DEV_TIER","ESD_REV"],
+        aliases=["Parcel","Owner","Acres","Jurisdiction","Proposed zoning","Dev tier","ESD revenue ($)"],
+        localize=True),
+).add_to(m)
+
+# legend
+legend = "<div style='position:fixed;bottom:30px;left:30px;z-index:9999;background:white;padding:10px 14px;border:1px solid #ccc;border-radius:6px;font-size:13px'>"
+legend += "<b>Development tier</b><br>"
+for t in TIER_COLOR:
+    legend += f"<span style='display:inline-block;width:12px;height:12px;background:{TIER_COLOR[t]};margin-right:6px'></span>{TIER_LABEL[t]}<br>"
+legend += "</div>"
+m.get_root().html.add_child(folium.Element(legend))
+
+st_folium(m, use_container_width=True, height=620, returned_objects=[])
+st.caption("Click a parcel for details. Tier definitions: T1 vacant land, T2 underutilized (low improvement/land), "
+           "T3 aging structures (redevelopment), T4 built/not in pipeline.")
