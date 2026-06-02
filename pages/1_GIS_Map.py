@@ -5,10 +5,12 @@ with City Limits and 2019 ETJ boundaries for context.
 """
 import os, json
 import streamlit as st
+import _brand
 import folium
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="Sealy GIS — Developable Land", page_icon="🗺️", layout="wide")
+_brand.hide_chrome(); _brand.disclaimer()
 DATA = os.path.join(os.path.dirname(__file__), "..", "gis_data")
 
 st.title("Sealy GIS — Developable Land Map")
