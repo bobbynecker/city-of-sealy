@@ -97,11 +97,6 @@ st.markdown("""
   <div style="display:flex;gap:9px;align-items:flex-start;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1F6F6B" stroke-width="2.4" stroke-linecap="round" style="margin-top:1px;"><path d="M5 13l4 4L19 7"/></svg><div style="font-size:12.5px;color:#43494F;line-height:1.5;">City / ESD split <b>blank by design</b> — you set it</div></div>
 </div>
 
-<div style="background:#14181C;color:#9AA1A8;padding:24px 48px;font-size:12px;">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;">
-    <div style="display:flex;align-items:center;gap:9px;color:#D6DBDF;font-weight:600;letter-spacing:.04em;">SEALY / AUSTIN COUNTY ANALYSIS</div>
-    <div style="max-width:430px;color:#7E868D;line-height:1.55;">Independent analysis by Councilmember Bobby Necker, Place 1. Not an official City of Sealy website. Planning-level estimates from public data — not legal, financial, or official City advice.</div>
-  </div>
-  <div style="margin-top:14px;padding-top:12px;border-top:1px solid #262C31;color:#6B727A;">© 2026 Bobby Necker · neckerstx.com</div>
-</div>
 """, unsafe_allow_html=True)
+
+_brand.footer()

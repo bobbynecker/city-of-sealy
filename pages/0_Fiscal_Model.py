@@ -10,7 +10,7 @@ import pandas as pd
 import esd_backend as backend
 
 st.set_page_config(page_title="Sealy ESD #2 Fiscal Model", page_icon="🏛️", layout="wide")
-_brand.hide_chrome(); _brand.disclaimer()
+_brand.hide_chrome()
 
 # Canonical development types (match the workbook's 02_Type_Assumptions list)
 TYPES = ["Single-Family Subdivision","Single-Family Urban / Patio","Townhome / Condo",
@@ -21,10 +21,11 @@ TYPES = ["Single-Family Subdivision","Single-Family Urban / Patio","Townhome / C
          "Large Travel Center (C-store)","Fast Food / QSR","Restaurant (Full-Service)",
          "Grocery / Supermarket","Auto Parts / Service","Car Wash"]
 
-st.title("Sealy / Austin County ESD #2 — Fiscal Impact Model")
-st.caption("Planning-level scenario builder for the sales-tax Interlocal Agreement. "
-           "The City's fiscal-model workbook is the calculation engine, so results match it exactly. "
-           "The City / ESD split is a negotiation parameter — set it and see the effect.")
+_brand.page_header(
+    "ESD #2 fiscal impact model",
+    "Planning-level scenario builder for the sales-tax Interlocal Agreement. The City's fiscal-model "
+    "workbook is the calculation engine — results match it exactly. The City / ESD split is a "
+    "negotiation parameter: set it and see the effect.")
 
 # ---------------- Sidebar: assumptions ----------------
 with st.sidebar:
@@ -156,3 +157,5 @@ if st.button("▶  Calculate fiscal impact", type="primary"):
                "subdivision acres (lot size × gross-up); value & tax stay per-home.")
 else:
     st.info("Set your assumptions in the sidebar, edit the projects above, then click **Calculate fiscal impact**.")
+
+_brand.footer()

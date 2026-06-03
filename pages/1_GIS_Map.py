@@ -10,12 +10,13 @@ import folium
 from streamlit_folium import st_folium
 
 st.set_page_config(page_title="Sealy GIS — Developable Land", page_icon="🗺️", layout="wide")
-_brand.hide_chrome(); _brand.disclaimer()
+_brand.hide_chrome()
 DATA = os.path.join(os.path.dirname(__file__), "..", "gis_data")
 
-st.title("Sealy GIS — Developable Land Map")
-st.caption("City + ETJ parcels from the Developable Land Model, colored by development tier. "
-           "Boundaries: City Limits and 2019 ETJ. Planning-level; source: 06_GIS/Developable_Land_Model_2026-05.")
+_brand.page_header(
+    "Developable land map",
+    "City + ETJ parcels from the Developable Land Model, colored by development tier. "
+    "Boundaries: City Limits and the 2019 ETJ. Planning-level — source: Developable Land Model (2026-05).")
 
 @st.cache_data
 def load(name):
@@ -82,3 +83,5 @@ m.get_root().html.add_child(folium.Element(legend))
 st_folium(m, use_container_width=True, height=620, returned_objects=[])
 st.caption("Click a parcel for details. Tier definitions: T1 vacant land, T2 underutilized (low improvement/land), "
            "T3 aging structures (redevelopment), T4 built/not in pipeline.")
+
+_brand.footer()
