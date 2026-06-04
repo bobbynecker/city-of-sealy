@@ -53,6 +53,8 @@ h1, h2, h3 {color:#1F2428; letter-spacing:-.01em;}
 [data-testid="stExpander"] {background:#fff; border:1px solid #E8EAEC; border-radius:10px;}
 .stButton button, .stFormSubmitButton button {border-radius:9px; font-weight:600;}
 [data-testid="stDataFrame"] {border:1px solid #E4E7E9; border-radius:10px;}
+[data-testid="stPageLink"] p {font-size:13.5px; font-weight:600;}
+.st-key-topnav {background:#fff; border:1px solid #E4E7E9; border-radius:12px; padding:2px 12px; margin-bottom:6px;}
 </style>"""
 
 
@@ -96,6 +98,22 @@ def hide_chrome():
     st.markdown(_THEME, unsafe_allow_html=True)
 
 
+def top_nav():
+    """Site navigation row — on every page; st.page_link keeps the password session alive."""
+    with st.container(key="topnav"):
+        cols = st.columns([0.8, 1.2, 1.5, 1.7, 1.0, 3.8])
+        with cols[0]:
+            st.page_link("app.py", label="Home")
+        with cols[1]:
+            st.page_link("pages/0_Fiscal_Model.py", label="Fiscal model")
+        with cols[2]:
+            st.page_link("pages/1_GIS_Map.py", label="Developable land")
+        with cols[3]:
+            st.page_link("pages/2_Land_Use_and_Zoning_Map.py", label="Land use & zoning")
+        with cols[4]:
+            st.page_link("pages/3_Sources_and_Methodology.py", label="Sources")
+
+
 def page_header(title, sub=""):
     """Slim ink identity band — use instead of st.title on inner pages."""
     sub_html = ('<div style="font-size:13px;color:#A9B1B8;margin-top:4px;max-width:780px;line-height:1.55;">'
@@ -122,5 +140,5 @@ def footer():
         'display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
         "<div>Independent analysis by Councilmember Bobby Necker, Place 1 — not an official City of Sealy "
         "website. Planning-level estimates from public data; not legal, financial, or official City advice.</div>"
-        '<div style="color:#9AA1A8;">© 2026 Bobby Necker · neckerstx.com</div>'
+        '<div style="color:#9AA1A8;">Model &amp; parcel data updated 2026-06-02 · © 2026 Bobby Necker · neckerstx.com</div>'
         "</div></div>", unsafe_allow_html=True)
