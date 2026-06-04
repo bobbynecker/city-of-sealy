@@ -12,8 +12,9 @@ import streamlit as st
 import _brand
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Sealy — Land Use & Zoning", page_icon="🗺️", layout="wide")
+st.set_page_config(page_title="Sealy — Land Use & Zoning", page_icon="assets/favicon.png", layout="wide")
 _brand.hide_chrome()
+_brand.top_nav()
 
 _brand.page_header(
     "Land use & zoning map",

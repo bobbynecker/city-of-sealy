@@ -4,13 +4,22 @@ A friendly front-end over the City's fiscal-model workbook. The Excel workbook i
 calculation engine — this app writes your inputs into a copy, recalculates, and reads the
 results back — so every number here matches the workbook exactly. Planning-level.
 """
+import io
+
 import streamlit as st
 import _brand
 import pandas as pd
 import esd_backend as backend
 
-st.set_page_config(page_title="Sealy ESD #2 Fiscal Model", page_icon="🏛️", layout="wide")
+st.set_page_config(page_title="Sealy ESD #2 Fiscal Model", page_icon="assets/favicon.png", layout="wide")
 _brand.hide_chrome()
+_brand.top_nav()
+
+_brand.page_header(
+    "ESD #2 fiscal impact model",
+    "Planning-level scenario builder for the sales-tax Interlocal Agreement. The City's fiscal-model "
+    "workbook is the calculation engine — results match it exactly. The City / ESD split is a "
+    "negotiation parameter: set it and see the effect.")
 
 # Canonical development types (match the workbook's 02_Type_Assumptions list)
 TYPES = ["Single-Family Subdivision","Single-Family Urban / Patio","Townhome / Condo",
@@ -20,12 +29,6 @@ TYPES = ["Single-Family Subdivision","Single-Family Urban / Patio","Townhome / C
          "Parks / Open Space","Vacant / Holding Land","Gas / Convenience Store",
          "Large Travel Center (C-store)","Fast Food / QSR","Restaurant (Full-Service)",
          "Grocery / Supermarket","Auto Parts / Service","Car Wash"]
-
-_brand.page_header(
-    "ESD #2 fiscal impact model",
-    "Planning-level scenario builder for the sales-tax Interlocal Agreement. The City's fiscal-model "
-    "workbook is the calculation engine — results match it exactly. The City / ESD split is a "
-    "negotiation parameter: set it and see the effect.")
 
 # ---------------- Sidebar: assumptions ----------------
 with st.sidebar:
@@ -66,17 +69,48 @@ exemptions = {"Residential":{"city":res_c,"esd":res_e},
               "Industrial":{"city":ind,"esd":ind}}
 
 # ---------------- Main: scenario projects ----------------
+def _row(active, name, typ, qty, lot=None, gross=None, manual=None, start=1, build=4, capture=100):
+    return {"Active":active, "Name":name, "Type":typ, "Qty":qty, "Lot size (ac)":lot,
+            "Gross-up %":gross, "Manual Acres":manual, "Start":start, "Buildout":build, "Capture %":capture}
+
+PRESETS = {
+    "ESD baseline — retail + homes": [
+        _row(True,  "10-acre big-box / anchor retail", "Big-Box / Anchor Retail", 10),
+        _row(True,  "100-home single-family subdivision", "Single-Family Subdivision", 100, lot=0.125, gross=50, build=5),
+        _row(False, "250-unit multifamily apartments", "Multifamily Apartments", 250, start=2, build=3),
+        _row(False, "40-acre logistics", "Industrial / Logistics", 40, start=2, build=4),
+    ],
+    "Residential push — 300 homes + multifamily": [
+        _row(True,  "300-home single-family subdivision", "Single-Family Subdivision", 300, lot=0.125, gross=50, build=6),
+        _row(True,  "60 townhomes", "Townhome / Condo", 60, start=2, build=3),
+        _row(True,  "250-unit multifamily apartments", "Multifamily Apartments", 250, start=2, build=3),
+        _row(False, "10-acre big-box / anchor retail", "Big-Box / Anchor Retail", 10),
+    ],
+    "Industrial corridor — logistics + manufacturing": [
+        _row(True,  "40-acre logistics", "Industrial / Logistics", 40, build=3),
+        _row(True,  "25-acre manufacturing", "Manufacturing", 25, start=2, build=4),
+        _row(True,  "10-acre big-box / anchor retail", "Big-Box / Anchor Retail", 10, start=2),
+        _row(False, "100-home single-family subdivision", "Single-Family Subdivision", 100, lot=0.125, gross=50, build=5),
+    ],
+}
+
 st.subheader("Scenario projects")
-st.caption("Add the development projects to test, check **Active** to include one. The type sets the unit "
+st.caption("Pick a preset or edit the table. Check **Active** to include a project. The type sets the unit "
            "(lots / units / acres / sqft / rooms). For subdivisions, set **Lot size** and a **Gross-up %** "
            "(extra land for streets / detention / open space — Sealy newer subdivisions ≈ 50%).")
-default = pd.DataFrame([
-    {"Active":True,  "Name":"10-acre big-box / anchor retail","Type":"Big-Box / Anchor Retail","Qty":10,"Lot size (ac)":None,"Gross-up %":None,"Manual Acres":None,"Start":1,"Buildout":4,"Capture %":100},
-    {"Active":True,  "Name":"100-home single-family subdivision","Type":"Single-Family Subdivision","Qty":100,"Lot size (ac)":0.125,"Gross-up %":50,"Manual Acres":None,"Start":1,"Buildout":5,"Capture %":100},
-    {"Active":False, "Name":"250-unit multifamily apartments","Type":"Multifamily Apartments","Qty":250,"Lot size (ac)":None,"Gross-up %":None,"Manual Acres":None,"Start":2,"Buildout":3,"Capture %":100},
-    {"Active":False, "Name":"40-acre logistics","Type":"Industrial / Logistics","Qty":40,"Lot size (ac)":None,"Gross-up %":None,"Manual Acres":None,"Start":2,"Buildout":4,"Capture %":100},
-])
-edited = st.data_editor(default, num_rows="dynamic", use_container_width=True, key="scn",
+
+pc1, pc2 = st.columns([2.6, 5.4])
+with pc1:
+    preset_name = st.selectbox("Quick presets", list(PRESETS), label_visibility="collapsed")
+with pc2:
+    if st.button("Load preset"):
+        st.session_state["fm_df"] = pd.DataFrame(PRESETS[preset_name])
+        st.session_state["fm_ver"] = st.session_state.get("fm_ver", 0) + 1
+        st.rerun()
+
+base_df = st.session_state.get("fm_df", pd.DataFrame(PRESETS["ESD baseline — retail + homes"]))
+edited = st.data_editor(base_df, num_rows="dynamic", use_container_width=True,
+    key=f"scn{st.session_state.get('fm_ver', 0)}",
     column_config={
         "Active": st.column_config.CheckboxColumn(),
         "Type": st.column_config.SelectboxColumn(options=TYPES, width="large"),
@@ -85,77 +119,132 @@ edited = st.data_editor(default, num_rows="dynamic", use_container_width=True, k
         "Capture %": st.column_config.NumberColumn(min_value=0, max_value=100),
     })
 
-if st.button("▶  Calculate fiscal impact", type="primary"):
-    scenarios = []
-    for _, row in edited.iterrows():
+
+def parse_scenarios(df):
+    out = []
+    for _, row in df.iterrows():
         if pd.isna(row.get("Type")) or pd.isna(row.get("Qty")):
             continue
         def num(v):
             return None if pd.isna(v) else float(v)
-        scenarios.append(dict(
+        out.append(dict(
             name=row["Name"], active=bool(row["Active"]), type=row["Type"], qty=float(row["Qty"]),
             lot=num(row.get("Lot size (ac)")),
             grossup=(None if pd.isna(row.get("Gross-up %")) else float(row["Gross-up %"])/100),
             manual_acres=num(row.get("Manual Acres")),
             start=int(row["Start"]), buildout=int(row["Buildout"]), capture=float(row["Capture %"])/100))
-    with st.spinner("Recalculating the model…"):
-        r = backend.compute(inputs, scenarios, exemptions)
+    return out
 
-    def g(key, h=4):  # h: 0=5y,1=10y,2=15y,3=20y,4=30y
-        return (r.get(key) or [0,0,0,0,0])[h] or 0
 
-    st.subheader("Results — 30-year net fiscal position")
-    c1,c2,c3 = st.columns(3)
-    c1.metric("City NET", f"${g('city_net'):,.0f}")
-    c2.metric("ESD #2 NET", f"${g('esd_net'):,.0f}")
-    c3.metric("Combined NET", f"${g('comb_net'):,.0f}")
+@st.cache_data(show_spinner=False, max_entries=24)
+def cached_compute(inputs, scenarios, exemptions):
+    return backend.compute(inputs, scenarios, exemptions)
 
-    horizons = ["5-yr","10-yr","15-yr","20-yr","30-yr"]
-    label_key = [
-        ("1.5% sales-tax pool","pool"),
-        ("→ City General Fund (net of EDC)","city_salestax"),
-        ("→ Sealy EDC (carve-out)","edc"),
-        ("→ ESD #2 share","esd_salestax"),
-        ("City property tax","city_pt"),
-        ("ESD #2 property tax","esd_pt"),
-        ("Impact fees (one-time)","impact"),
-        ("City operating cost","city_opex"),
-        ("ESD operating cost","esd_opex"),
-        ("City capital / debt service","city_capital"),
-        ("ESD capital / debt service","esd_capital"),
-        ("City NET","city_net"),
-        ("ESD #2 NET","esd_net"),
-        ("Combined NET","comb_net"),
-    ]
-    tbl = pd.DataFrame({lbl: r.get(key,[None]*5) for lbl,key in label_key}, index=horizons).T
-    st.dataframe(tbl.style.format("${:,.0f}", na_rep="—"), use_container_width=True)
 
-    st.markdown("**Does the sales-tax split move the needle?**")
-    city_excl = [(r.get("city_net") or [0]*5)[i] - (r.get("city_salestax") or [0]*5)[i] for i in range(5)]
-    iso = pd.DataFrame({
-        "City NET excl. sales tax":   city_excl,
-        "+ City sales-tax share":     r.get("city_salestax",[None]*5),
-        "= City NET incl. sales tax": r.get("city_net",[None]*5),
-    }, index=horizons).T
-    st.dataframe(iso.style.format("${:,.0f}", na_rep="—"), use_container_width=True)
+run_clicked = st.button("▶  Calculate fiscal impact", type="primary")
+first_visit = "fm_result" not in st.session_state
+if run_clicked or first_visit:
+    scenarios = parse_scenarios(edited)
+    msg = "Recalculating the model…" if run_clicked else "Running the baseline scenario for you…"
+    with st.spinner(msg):
+        r = cached_compute(inputs, scenarios, exemptions)
+    st.session_state["fm_result"] = r
+    st.session_state["fm_ctx"] = {"share": city_share, "edc": edc}
 
-    st.markdown("**Net fiscal position by horizon**")
-    chart = pd.DataFrame({"City NET": r.get("city_net",[0]*5), "ESD NET": r.get("esd_net",[0]*5)}, index=horizons)
-    st.bar_chart(chart)
+r = st.session_state["fm_result"]
+ctx = st.session_state["fm_ctx"]
+if not run_clicked:
+    st.caption("Showing the **last calculated** results — press *Calculate fiscal impact* after changing inputs.")
 
-    capex = r.get("__capex__", [])
-    if capex:
-        st.markdown("**Large capital items included in the net**")
-        cap_df = pd.DataFrame(capex)[["item","qty","unit","payer","treatment","cost10y"]]
-        cap_df.columns = ["Item","Quantity","Unit","Payer","How paid","10-yr cost in NET"]
-        st.dataframe(cap_df.style.format({"Quantity":"{:,.0f}","10-yr cost in NET":"${:,.0f}"}, na_rep="—"),
-                     use_container_width=True, hide_index=True)
 
-    st.caption("Planning-level estimates. Property tax is net of exemptions; sales-tax sourcing per "
-               "Comptroller Pub. 94-105 (retail = origin; residential = online use-tax only; "
-               "warehouse/manufacturing ≈ $0 local sales tax). Residential capital is sized off gross "
-               "subdivision acres (lot size × gross-up); value & tax stay per-home.")
-else:
-    st.info("Set your assumptions in the sidebar, edit the projects above, then click **Calculate fiscal impact**.")
+def g(key, h=4):  # h: 0=5y,1=10y,2=15y,3=20y,4=30y
+    return (r.get(key) or [0,0,0,0,0])[h] or 0
+
+
+st.subheader("Results — 30-year net fiscal position")
+c1,c2,c3 = st.columns(3)
+c1.metric("City NET", f"${g('city_net'):,.0f}")
+c2.metric("ESD #2 NET", f"${g('esd_net'):,.0f}")
+c3.metric("Combined NET", f"${g('comb_net'):,.0f}")
+
+# ---- Negotiation lever: NET vs City share of the pool (derived from one engine run —
+#      the sales-tax line is linear in the split, everything else is unchanged) ----
+pool30, cst30, est30 = g("pool"), g("city_salestax"), g("esd_salestax")
+if pool30:
+    e0 = ctx["edc"]; s0 = ctx["share"]
+    shares = list(range(0, 101, 5))
+    city_line = [g("city_net") - cst30 + pool30*(s/100)*(1-e0) for s in shares]
+    esd_line  = [g("esd_net")  - est30 + pool30*(1 - s/100)    for s in shares]
+    st.markdown("**The negotiation lever — 30-yr NET at every City / ESD split**")
+    sens = pd.DataFrame({"City NET": city_line, "ESD #2 NET": esd_line},
+                        index=pd.Index(shares, name="City share of pool (%)"))
+    st.line_chart(sens)
+    notes = [f"Currently set at **{s0*100:.0f}% City / {100-s0*100:.0f}% ESD**."]
+    denom = pool30*(1-e0)
+    if denom > 0:
+        sb = (cst30 - g("city_net")) / denom * 100
+        if 0 <= sb <= 100:
+            notes.append(f"City 30-yr NET breaks even at ≈ **{sb:.0f}%** City share.")
+    if pool30 > 0:
+        se = (1 - (est30 - g("esd_net")) / pool30) * 100
+        if 0 <= se <= 100:
+            notes.append(f"ESD #2 30-yr NET breaks even at ≈ **{se:.0f}%** City share.")
+    st.caption(" ".join(notes))
+
+horizons = ["5-yr","10-yr","15-yr","20-yr","30-yr"]
+label_key = [
+    ("1.5% sales-tax pool","pool"),
+    ("→ City General Fund (net of EDC)","city_salestax"),
+    ("→ Sealy EDC (carve-out)","edc"),
+    ("→ ESD #2 share","esd_salestax"),
+    ("City property tax","city_pt"),
+    ("ESD #2 property tax","esd_pt"),
+    ("Impact fees (one-time)","impact"),
+    ("City operating cost","city_opex"),
+    ("ESD operating cost","esd_opex"),
+    ("City capital / debt service","city_capital"),
+    ("ESD capital / debt service","esd_capital"),
+    ("City NET","city_net"),
+    ("ESD #2 NET","esd_net"),
+    ("Combined NET","comb_net"),
+]
+tbl = pd.DataFrame({lbl: r.get(key,[None]*5) for lbl,key in label_key}, index=horizons).T
+st.dataframe(tbl.style.format("${:,.0f}", na_rep="—"), use_container_width=True)
+
+d1, d2, _sp = st.columns([1.6, 1.6, 4.8])
+with d1:
+    st.download_button("⬇ Results (CSV)", tbl.to_csv().encode("utf-8"),
+                       "sealy_esd2_fiscal_results.csv", "text/csv")
+with d2:
+    xbuf = io.BytesIO()
+    tbl.to_excel(xbuf, sheet_name="Results")
+    st.download_button("⬇ Results (Excel)", xbuf.getvalue(), "sealy_esd2_fiscal_results.xlsx",
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+st.markdown("**Does the sales-tax split move the needle?**")
+city_excl = [(r.get("city_net") or [0]*5)[i] - (r.get("city_salestax") or [0]*5)[i] for i in range(5)]
+iso = pd.DataFrame({
+    "City NET excl. sales tax":   city_excl,
+    "+ City sales-tax share":     r.get("city_salestax",[None]*5),
+    "= City NET incl. sales tax": r.get("city_net",[None]*5),
+}, index=horizons).T
+st.dataframe(iso.style.format("${:,.0f}", na_rep="—"), use_container_width=True)
+
+st.markdown("**Net fiscal position by horizon**")
+chart = pd.DataFrame({"City NET": r.get("city_net",[0]*5), "ESD NET": r.get("esd_net",[0]*5)}, index=horizons)
+st.bar_chart(chart)
+
+capex = r.get("__capex__", [])
+if capex:
+    st.markdown("**Large capital items included in the net**")
+    cap_df = pd.DataFrame(capex)[["item","qty","unit","payer","treatment","cost10y"]]
+    cap_df.columns = ["Item","Quantity","Unit","Payer","How paid","10-yr cost in NET"]
+    st.dataframe(cap_df.style.format({"Quantity":"{:,.0f}","10-yr cost in NET":"${:,.0f}"}, na_rep="—"),
+                 use_container_width=True, hide_index=True)
+
+st.caption("Planning-level estimates. Property tax is net of exemptions; sales-tax sourcing per "
+           "Comptroller Pub. 94-105 (retail = origin; residential = online use-tax only; "
+           "warehouse/manufacturing ≈ $0 local sales tax). Residential capital is sized off gross "
+           "subdivision acres (lot size × gross-up); value & tax stay per-home.")
 
 _brand.footer()
