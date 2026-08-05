@@ -47,7 +47,7 @@ jobs:
             ${{ env.IMAGE }}:${{ github.sha }}
 
       - name: Deploy the image to the Azure Web App
-        uses: azure/webapps-deploy@b686016b4de8820a23519503685d8d03fbfa03a6 # v3
+        uses: azure/webapps-deploy@02a81bead70021f5284939794bcec79c271ab383 # v3
         with:
           app-name: necker-sealy
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
