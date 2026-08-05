@@ -34,3 +34,16 @@ jobs:
 
       - name: Compile Python sources
         run: python3 -m compileall -q app.py esd_backend.py _brand.py pages
+
+  container:
+    name: Build deployable container without pushing
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build --tag city-of-sealy-pr:${{ github.sha }} .
